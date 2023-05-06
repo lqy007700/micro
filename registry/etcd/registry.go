@@ -7,11 +7,14 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"micro/registry"
+	"sync"
 )
 
 type Registry struct {
 	c       *clientv3.Client
 	session *concurrency.Session
+	cancels []func()
+	mutex   sync.Mutex
 }
 
 func NewRegistry(c *clientv3.Client) (*Registry, error) {
@@ -41,17 +44,61 @@ func (r *Registry) UnRegister(ctx context.Context, si registry.ServiceInstance) 
 }
 
 func (r *Registry) ListServices(ctx context.Context, name string) ([]registry.ServiceInstance, error) {
-	//TODO implement me
-	panic("implement me")
+	resp, err := r.c.Get(context.Background(), r.serviceKey(name), clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]registry.ServiceInstance, 0, len(resp.Kvs))
+	for _, kv := range resp.Kvs {
+		var si registry.ServiceInstance
+		err = json.Unmarshal(kv.Value, &si)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, si)
+	}
+	return res, nil
 }
 
 func (r *Registry) Subscribe(name string) (<-chan registry.Event, error) {
-	//TODO implement me
-	panic("implement me")
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx = clientv3.WithRequireLeader(ctx)
+	r.mutex.Lock()
+	r.cancels = append(r.cancels, cancelFunc)
+	r.mutex.Unlock()
+
+	watchEvents := r.c.Watch(ctx, r.serviceKey(name), clientv3.WithPrefix())
+	res := make(chan registry.Event)
+	go func() {
+		for {
+			select {
+			case watch := <-watchEvents:
+				if watch.Err() != nil {
+					continue
+				}
+				if watch.Canceled {
+					return
+				}
+				res <- registry.Event{}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return res, nil
 }
 
 func (r *Registry) Close() error {
+	r.mutex.Lock()
+	cancels := r.cancels
+	r.cancels = nil
+	r.mutex.Unlock()
+
 	err := r.session.Close()
+	for _, cancel := range cancels {
+		cancel()
+	}
 	return err
 }
 
@@ -59,6 +106,6 @@ func (r *Registry) instanceKey(si registry.ServiceInstance) string {
 	return fmt.Sprintf("/micro/%s/%s", si.Name, si.Address)
 }
 
-func (r *Registry) serviceKey(si registry.ServiceInstance) string {
-	return fmt.Sprintf("/micro/%s", si.Name)
+func (r *Registry) serviceKey(name string) string {
+	return fmt.Sprintf("/micro/%s", name)
 }

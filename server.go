@@ -10,8 +10,28 @@ import (
 type Server struct {
 	name     string
 	registry registry.Registry
-	server   *grpc.Server
-	listen   net.Listener
+	*grpc.Server
+	listen net.Listener
+}
+
+type ServerOpt func(server *Server)
+
+func NewServer(name string, opts ...ServerOpt) (*Server, error) {
+	s := &Server{
+		name:   name,
+		Server: grpc.NewServer(),
+	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s, nil
+}
+
+func ServerWithRegistry(r registry.Registry) ServerOpt {
+	return func(server *Server) {
+		server.registry = r
+	}
 }
 
 func (s *Server) Start(ctx context.Context, addr string) error {
@@ -34,7 +54,7 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 		//}()
 	}
 
-	err = s.server.Serve(listen)
+	err = s.Serve(listen)
 	return err
 }
 
@@ -46,6 +66,6 @@ func (s *Server) Close() error {
 		}
 	}
 
-	s.server.GracefulStop()
+	s.GracefulStop()
 	return nil
 }

@@ -2,16 +2,39 @@ package grpc_resolver
 
 import (
 	"context"
-	"google.golang.org/grpc"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"micro"
 	"micro/proto/gen"
+	"micro/registry/etcd"
 	"testing"
+	"time"
 )
 
 func TestClient(t *testing.T) {
-	cc, _ := grpc.Dial("registry:///127.0.0.1:8083", grpc.WithInsecure(), grpc.WithResolvers(&Builder{}))
+	// 启动etcd
+	client, err := clientv3.New(clientv3.Config{
+		Endpoints:   []string{"127.0.0.1:2379"},
+		DialTimeout: time.Second * 3,
+	})
+	t.Log(client)
+	if err != nil {
+		t.Log(err)
+		return
+	}
 
-	client := gen.NewUserServiceClient(cc)
-	res, err := client.GetById(context.Background(), &gen.GetByIdReq{
+	r, err := etcd.NewRegistry(client)
+	if err != nil {
+		t.Log(err)
+		return
+	}
+	cc, _ := micro.NewClient(micro.WithClientInsecure(), micro.WithClientRegistry(r))
+	grpcCC, err := cc.Dial("user-service")
+	if err != nil {
+		return
+	}
+
+	userServiceClient := gen.NewUserServiceClient(grpcCC)
+	res, err := userServiceClient.GetById(context.Background(), &gen.GetByIdReq{
 		Id: 123,
 	})
 	if err != nil {

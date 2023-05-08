@@ -45,6 +45,8 @@ func (c *Client) Dial(name string) (*grpc.ClientConn, error) {
 		opts = append(opts, grpc.WithInsecure())
 	}
 
+	opts = append(opts, grpc.WithDefaultServiceConfig(`{"LoadBalancingPolicy":"DEMO_ROUND_ROBIN"}`))
+
 	cc, err := grpc.Dial(fmt.Sprintf("registry:///%s", name), opts...)
 	return cc, err
 }

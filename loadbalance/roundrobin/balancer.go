@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 )
 
+// Balancer 轮询
 type Balancer struct {
 	idx         int32
 	connections []balancer.SubConn

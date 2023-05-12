@@ -12,6 +12,8 @@ type Server struct {
 	registry registry.Registry
 	*grpc.Server
 	listen net.Listener
+
+	weight uint32
 }
 
 type ServerOpt func(server *Server)
@@ -31,6 +33,12 @@ func NewServer(name string, opts ...ServerOpt) (*Server, error) {
 func ServerWithRegistry(r registry.Registry) ServerOpt {
 	return func(server *Server) {
 		server.registry = r
+	}
+}
+
+func ServerWithWeight(w uint32) ServerOpt {
+	return func(server *Server) {
+		server.weight = w
 	}
 }
 

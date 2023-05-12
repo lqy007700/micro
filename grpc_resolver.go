@@ -2,6 +2,7 @@ package micro
 
 import (
 	"context"
+	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
 	"micro/registry"
 )
@@ -69,11 +70,12 @@ func (g *grpcResolver) resolve() {
 	}
 	addr := make([]resolver.Address, 0, len(services))
 	for _, service := range services {
-		addr = append(addr, resolver.Address{Addr: service.Address})
+		addr = append(addr, resolver.Address{
+			Addr:       service.Address,
+			Attributes: attributes.New("weight", service.Weight),
+		})
 	}
-	err = g.cc.UpdateState(resolver.State{
-		Addresses: addr,
-	})
+	err = g.cc.UpdateState(resolver.State{Addresses: addr})
 	if err != nil {
 		g.cc.ReportError(err)
 		return

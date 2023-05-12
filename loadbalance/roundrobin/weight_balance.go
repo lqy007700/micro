@@ -1,3 +1,9 @@
+/**
+平滑加权轮询
+不推荐，需要动态维护机器的权重值
+需要加锁更新
+*/
+
 package roundrobin
 
 import (
@@ -5,7 +11,6 @@ import (
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"math"
-	"strconv"
 	"sync"
 	"sync/atomic"
 )
@@ -70,20 +75,16 @@ type WeightBalanceBuilder struct {
 func (w *WeightBalanceBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	cs := make([]*conn, 0, len(info.ReadySCs))
 	for subConn, connInfo := range info.ReadySCs {
-		weightStr, ok := connInfo.Address.Attributes.Value("weight").(string)
-		if !ok || weightStr == "" {
+		weight, ok := connInfo.Address.Attributes.Value("weight").(uint32)
+		if !ok || weight == 0 {
 			panic("weight empty")
-		}
-		weight, err := strconv.ParseInt(weightStr, 10, 64)
-		if err != nil {
-			panic(err)
 		}
 
 		cs = append(cs, &conn{
 			c:               subConn,
-			weight:          uint32(weight),
-			currentWeight:   uint32(weight),
-			efficientWeight: uint32(weight),
+			weight:          weight,
+			currentWeight:   weight,
+			efficientWeight: weight,
 		})
 	}
 	return &WeightBalance{}

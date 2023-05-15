@@ -22,6 +22,7 @@ func TestClient(t *testing.T) {
 		return
 	}
 
+	// 初始化注册中心实例
 	r, err := etcd.NewRegistry(client)
 	if err != nil {
 		t.Log(err)

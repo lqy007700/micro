@@ -2,7 +2,6 @@ package grpc_resolver
 
 import (
 	"context"
-	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"micro"
 	"micro/proto/gen"
@@ -43,13 +42,4 @@ func TestClient(t *testing.T) {
 		return
 	}
 	t.Log(res)
-}
-
-func TestC(t *testing.T) {
-	ticker := time.NewTicker(time.Second * 2)
-
-	select {
-	case <-ticker.C:
-		fmt.Println(123)
-	}
 }
